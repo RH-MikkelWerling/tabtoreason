@@ -176,6 +176,9 @@ wandb/
 logs/
 eval_results/
 results/
+benchmarks/
+tabular_datasets/
+.litellm_cache/
 
 .vscode/
 .python-version
