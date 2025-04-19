@@ -2,7 +2,7 @@ from constants import *
 import pandas as pd
 from datasets import load_dataset, DatasetDict, Dataset
 
-data = pd.read_csv("data/biobank/processed_data/biobank.csv")
+data = pd.read_csv("data/biobank/processed_data/biobank_complete.csv")
 
 
 X = data[
@@ -28,6 +28,10 @@ patient_description_prompts = [
 
 data["prompts"] = patient_description_prompts
 
+data["concatenated_reasoning_and_answers"] = (
+    data["patient_description_reasoning"] + data["patient_description_answering"]
+)
+
 # notebook_login()
 
 data = data.reset_index().rename(
@@ -35,9 +39,10 @@ data = data.reset_index().rename(
         "index": "id",
         "prompts": "problem",
         "patient_description_answering": "answer",
-        "patient_description_reasoning": "solution",
+        "patient_description_reasoning": "reasoning",
+        "concatenated_reasoning_and_answers": "solution",
     }
-)[["id", "problem", "answer", "solution"]]
+)[["id", "problem", "answer", "reasoning", "solution"]]
 
 
 def get_messages_column_from_standard_format(row):
@@ -55,13 +60,27 @@ data["messages"] = data.apply(
 
 dataset = DatasetDict({"train": Dataset.from_pandas(data)})
 
-dataset.push_to_hub(
+dataset_split = dataset["train"].train_test_split(test_size = 0.1, seed=42)
+
+dataset_split.push_to_hub(
     "mikkel-werling/cardiovascular_biobank_patient_descriptions", private=True
 )
 
-dataset_test = load_dataset(
-    "mikkel-werling/cardiovascular_biobank_patient_descriptions", "default"
-)
+from datasets import load_dataset
+
+# Load the dataset directly from the Hub
+dataset = load_dataset("mikkel-werling/cardiovascular_biobank_patient_descriptions")
+print(dataset["train"])  # Should show ~100,000 examples
+dataset
+
+# dataset_test = load_dataset(
+#     "mikkel-werling/cardiovascular_biobank_patient_descriptions", "default"
+# )
+0.15.4
+
+ACCELERATE_LOG_LEVEL=info accelerate launch --config_file recipes/accelerate_configs/zero3.yaml \
+    src/open_r1/sft.py \
+    --config recipes/DeepSeek-R1-Distill-Qwen-1.5B/sft/config_cardiovascular_biobank_patient_descriptions.yaml
 
 
 ACCELERATE_LOG_LEVEL=info accelerate launch --config_file recipes/accelerate_configs/zero3.yaml \

@@ -25,7 +25,11 @@ VLLM_SLURM_PREFIX = [
 
 
 def register_lighteval_task(
-    configs: Dict[str, str], eval_suite: str, task_name: str, task_list: str, num_fewshot: int = 0
+    configs: Dict[str, str],
+    eval_suite: str,
+    task_name: str,
+    task_list: str,
+    num_fewshot: int = 0,
 ):
     """Registers a LightEval task configuration.
 
@@ -41,7 +45,9 @@ def register_lighteval_task(
         is_custom_task (bool, optional): Whether the task is a custom task. Defaults to False.
     """
     # Format task list in lighteval format
-    task_list = ",".join(f"{eval_suite}|{task}|{num_fewshot}|0" for task in task_list.split(","))
+    task_list = ",".join(
+        f"{eval_suite}|{task}|{num_fewshot}|0" for task in task_list.split(",")
+    )
     configs[task_name] = task_list
 
 
@@ -52,7 +58,55 @@ register_lighteval_task(LIGHTEVAL_TASKS, "lighteval", "aime24", "aime24", 0)
 register_lighteval_task(LIGHTEVAL_TASKS, "lighteval", "aime25", "aime25", 0)
 register_lighteval_task(LIGHTEVAL_TASKS, "lighteval", "gpqa", "gpqa:diamond", 0)
 register_lighteval_task(LIGHTEVAL_TASKS, "extended", "lcb", "lcb:codegeneration", 0)
-register_lighteval_task(LIGHTEVAL_TASKS, "extended", "lcb_v4", "lcb:codegeneration_v4", 0)
+register_lighteval_task(
+    LIGHTEVAL_TASKS, "extended", "lcb_v4", "lcb:codegeneration_v4", 0
+)
+register_lighteval_task(
+    LIGHTEVAL_TASKS, "lighteval", "pubmedqa_lighteval", "pubmedqa", 0
+)
+register_lighteval_task(
+    LIGHTEVAL_TASKS,
+    "helm",
+    "med_dialog_healthcaremagic_helm",
+    "med_dialog:healthcaremagic",
+    0,
+)
+register_lighteval_task(
+    LIGHTEVAL_TASKS, "helm", "med_dialog_icliniq_helm", "med_dialog:icliniq", 0
+)
+register_lighteval_task(
+    LIGHTEVAL_TASKS,
+    "original",
+    "mmlu_college_medicine_original",
+    "mmlu:college_medicine",
+    0,
+)
+register_lighteval_task(
+    LIGHTEVAL_TASKS,
+    "leaderboard",
+    "mmlu_college_medicine_leaderboard",
+    "mmlu:college_medicine",
+    0,
+)
+register_lighteval_task(
+    LIGHTEVAL_TASKS,
+    "original",
+    "mmlu_professional_medicine_original",
+    "mmlu:professional_medicine",
+    0,
+)
+register_lighteval_task(
+    LIGHTEVAL_TASKS,
+    "leaderboard",
+    "mmlu_professional_medicine_leaderboard",
+    "mmlu:professional_medicine",
+    0,
+)
+
+
+# 1. go through and label categories for each dataset
+# - (1) give the text to LLM --> is this related to what the model was trained on?
+# 2. pubmedqa_cardiovascular_stuff
 
 
 def get_lighteval_tasks():
@@ -63,7 +117,9 @@ SUPPORTED_BENCHMARKS = get_lighteval_tasks()
 
 
 def run_lighteval_job(
-    benchmark: str, training_args: Union["SFTConfig", "GRPOConfig"], model_args: "ModelConfig"
+    benchmark: str,
+    training_args: Union["SFTConfig", "GRPOConfig"],
+    model_args: "ModelConfig",
 ) -> None:
     task_list = LIGHTEVAL_TASKS[benchmark]
     model_name = training_args.hub_model_id
@@ -97,7 +153,9 @@ def run_lighteval_job(
     subprocess.run(cmd, check=True)
 
 
-def run_benchmark_jobs(training_args: Union["SFTConfig", "GRPOConfig"], model_args: "ModelConfig") -> None:
+def run_benchmark_jobs(
+    training_args: Union["SFTConfig", "GRPOConfig"], model_args: "ModelConfig"
+) -> None:
     benchmarks = training_args.benchmarks
     if len(benchmarks) == 1 and benchmarks[0] == "all":
         benchmarks = get_lighteval_tasks()

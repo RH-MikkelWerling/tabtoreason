@@ -1,7 +1,8 @@
 from constants import *
 import pandas as pd
 from litellm import completion, acompletion
-#from ucimlrepo import fetch_ucirepo, list_available_datasets
+
+# from ucimlrepo import fetch_ucirepo, list_available_datasets
 from tqdm import tqdm
 import asyncio
 import litellm
@@ -12,6 +13,7 @@ from tqdm.asyncio import tqdm
 import gower
 import random
 import os
+
 
 def get_content_and_reason_from_string(string):
     reasoning, end_of_reason_token, answer = string.partition("</think>")
@@ -27,6 +29,7 @@ def get_content_and_reason_from_response(response, index=0):
 
 def concatenate_description_and_question(description, question):
     return description + "\n_____________\n" + question
+
 
 def prompt_model(prompt):
 
@@ -58,7 +61,8 @@ async def async_prompt_model(prompt):
 
 
 # Limit concurrent requests to 500
-sem = asyncio.Semaphore(500)
+# EXPERIMENTALLY CHANGED TO 5000
+sem = asyncio.Semaphore(1000)
 
 
 async def call_llm(prompt, index, progress_queue, max_retries=10):
@@ -97,10 +101,16 @@ async def call_llm(prompt, index, progress_queue, max_retries=10):
                 f"Timeout occurred. Retrying in {wait_time:.2f}s... (Attempt {attempt+1}/{max_retries})"
             )
             await asyncio.sleep(wait_time)
-        except (litellm.APIError, httpx.ConnectError) as e:
+        except KeyError:
             wait_time = 2**attempt + random.uniform(0, 1)
             print(
-                f"Connection issue: {e}. Retrying in {wait_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})"
+                f"KeyError issue: {e}. Retrying in {wait_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})"
+            )
+            await asyncio.sleep(wait_time)  # Exponential backoff
+        except litellm.exceptions.APIConnectionError:
+            wait_time = 2**attempt + random.uniform(0, 1)
+            print(
+                f"API connection issue: {e}. Retrying in {wait_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})"
             )
             await asyncio.sleep(wait_time)  # Exponential backoff
 

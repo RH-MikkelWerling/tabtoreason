@@ -162,7 +162,7 @@ def generate_tasks_from_patient_descriptions(row, response_data, system_prompt):
 
 tasks = response_data.apply(
     lambda x: generate_tasks_from_patient_descriptions(
-        x, response_data, FROM_PATIENT_DESCRIPTIONS_TO_TASK_PROMPT
+        x, response_data, FROM_PATIENT_DESCRIPTIONS_TO_TASK_NO_COUNTERFACTUAL_PROMPT
     ),
     axis=1,
 ).to_list()
@@ -196,22 +196,11 @@ tasks = response_data.apply(
 if __name__ == "__main__":
     import os
 
-    def ceiling_division(n, d):
-        return -(n // -d)
+    file_path = f"data/biobank/tasks/patient_tasks_no_counterfactuals_biobank_batch_complete.pkl"
 
-    batch_size = 1000
+    results = asyncio.run(run_llm_calls(tasks))  # Run tasks properly
 
-    for iteration in range(ceiling_division(len(tasks), batch_size)):
-        print("Running batch:", iteration)
-        file_path = f"data/biobank/tasks/patient_tasks_counterfactuals_biobank_batch_{iteration}.pkl"
-        if os.path.exists(file_path):
-            continue
-        else:
-            current_tasks = tasks[iteration * 1000 : (iteration + 1) * 1000]
+    with open(file_path, "wb") as f:
+        pkl.dump(results, f)
 
-            results = asyncio.run(run_llm_calls(current_tasks))  # Run tasks properly
-
-            with open(file_path, "wb") as f:
-                pkl.dump(results, f)
-
-            print("Collected", len(results), "responses.")
+    print("Collected", len(results), "responses.")

@@ -34,6 +34,122 @@ You should ONLY include the patient description!
 _____
 The json-file containing the information from the patient:\n"""
 
+FROM_JSON_TO_QUESTION_PROMPT_COVID = """You are a powerful AI with expertise in medicine. 
+Your task is to generate a detailed and exhaustive text description for a patient.  
+You are given all the patient information in a json-format, which contains the clinical attributes and the results from laboratory tests from real world patients. 
+The patients are hospitalized COVID patients.
+The language used in the description should reflect your domain expertise and your medical reasoning capabilities.
+Please provide as many details as possible.
+You should ONLY include the patient description!
+_____
+The json-file containing the information from the patient:\n"""
+
+
+FROM_PATIENT_DESCRIPTIONS_TO_TASK_PROMPT = (
+    system_prompt_for_tasks
+) = """### Role ###
+Clinical AI analyzing patient outcomes using contrastive case pairs.
+
+### Input Data ###
+1) Target patient (labeled {target_outcome})
+2) Nearest neighbor who survived
+3) Nearest neighbor who died\n
+=== CLOSEST SURVIVOR ===
+{survivor_description}\n
+=== CLOSEST DEATH ===
+{death_description}\n
+=== TARGET PATIENT ===
+{target_description}\n
+### Required Analysis ###
+1. Comparison:
+   a) Identify 1-3 decisive differences between target and NNs
+   b) Focus on features present in ALL THREE cases
+   c) Flag any conflicting evidence (e.g., "Target aligns with NN1 in [X] but NN2 in [Y]")
+
+2. Label Evaluation:
+   a) Assess if {target_outcome} is correct
+   b) Confidence score (1-5):
+      5 = All evidence strongly agrees
+      4 = Most evidence agrees
+      3 = Mixed evidence
+      2 = Minimal supporting evidence
+      1 = No discernible pattern
+
+3. Counterfactual:
+   a) Modify one feature present in NNs
+   b) Predict outcome change
+   c) Justify using specific NN evidence
+
+### Response Format ###
+1. Comparison:
+   1) Outcome alignment: <Matches Survivor/Matches Death/Uncertain>
+   2) Decisive factors:
+      1) <Feature>: Target vs NN1 vs NN2
+      2) <Feature>: Target vs NN1 vs NN2
+
+2. Label assessment:
+   1) Correctness: <Correct/Incorrect/Edge Case>
+   2) Confidence: <1-5 with brief rationale>
+
+3. Counterfactual:
+   1) Modification: <Feature + change>
+   2) Outcome: <Survived/Died>
+   3) Evidence: <"Matches [NN] where [feature]=[value]">
+
+### Quality Rules ###
+- If confidence ≤2, state: "Uncertain because [reason]"
+- Counterfactuals must reference features actually present in NNs
+- Use original feature names from input data
+"""
+
+
+FROM_PATIENT_DESCRIPTIONS_TO_TASK_NO_COUNTERFACTUAL_PROMPT = (
+    system_prompt_for_tasks
+) = """### Role ###
+Clinical AI analyzing patient outcomes using contrastive case pairs.
+
+### Input Data ###
+1) Target patient (labeled {target_outcome})
+2) Nearest neighbor who survived
+3) Nearest neighbor who died\n
+=== CLOSEST SURVIVOR ===
+{survivor_description}\n
+=== CLOSEST DEATH ===
+{death_description}\n
+=== TARGET PATIENT ===
+{target_description}\n
+### Required Analysis ###
+1. Comparison:
+   a) Identify 1-3 decisive differences between target and NNs
+   b) Focus on features present in ALL THREE cases
+   c) Flag any conflicting evidence (e.g., "Target aligns with NN1 in [X] but NN2 in [Y]")
+
+2. Label Evaluation:
+   a) Assess if {target_outcome} is correct
+   b) Confidence score (1-5):
+      5 = All evidence strongly agrees
+      4 = Most evidence agrees
+      3 = Mixed evidence
+      2 = Minimal supporting evidence
+      1 = No discernible pattern
+
+### Response Format ###
+1. Comparison:
+   1) Outcome alignment: <Matches Survivor/Matches Death/Uncertain>
+   2) Decisive factors:
+      1) <Feature>: Target vs NN1 vs NN2
+      2) <Feature>: Target vs NN1 vs NN2
+
+2. Label assessment:
+   1) Correctness: <Correct/Incorrect/Edge Case>
+   2) Confidence: <1-5 with brief rationale>
+
+### Quality Rules ###
+- If confidence ≤2, state: "Uncertain because [reason]"
+- Counterfactuals must reference features actually present in NNs
+- Use original feature names from input data
+"""
+
 # DICTIONARIES
 
 DICTIONARY_TO_CLINICAL_NAMES_BIOBANK = {
@@ -119,4 +235,58 @@ DICTIONARY_TO_CLINICAL_NAMES_SUPPORT = {
     "death": "Patient Death Indicator (0=Alive, 1=Deceased)",
     "d.time": "Time to Death (Days post-admission)",
     "age": "Age (Years)",
+}
+
+DICTIONARY_TO_CLINICAL_NAMES_COVID = {
+    "is_dead": "Deceased Status",
+    "Days_hospital_to_outcome": "Days from Hospital Admission to Outcome",
+    "Age": "Age (Years)",
+    "Sex": "Sex",
+    "Race": "Race",
+    "SG_UF_NOT": "State of Notification (Brazilian UF Code)",
+    "Fever": "Fever",
+    "Cough": "Cough",
+    "Sore_throat": "Sore Throat",
+    "Shortness_of_breath": "Shortness of Breath",
+    "Respiratory_discomfort": "Respiratory Discomfort",
+    "SPO2": "Oxygen Saturation (SpO2%)",
+    "Dihareea": "Diarrhea",  # Corrected spelling
+    "Vomitting": "Vomiting",  # Corrected spelling
+    "Cardiovascular": "Cardiovascular Disease",
+    "Asthma": "Asthma",
+    "Diabetis": "Diabetes",  # Corrected spelling
+    "Pulmonary": "Pulmonary Disease",
+    "Immunosuppresion": "Immunosuppression",  # Corrected spelling
+    "Obesity": "Obesity",
+    "Liver": "Liver Disease",
+    "Neurologic": "Neurological Disorder",
+    "Renal": "Renal Disease",
+}
+
+DICTIONARY_TO_CLINICAL_NAMES_CUTRACT = {
+    "age": "Age",
+    "psa": "Prostate-Specific Antigen Level",
+    "mortCancer": "Mortality Due to Cancer",
+    "mort": "Overall Mortality",
+    "days": "Days from Diagnosis to Event (e.g., Death or Last Follow-Up)",
+    "comorbidities": "Comorbid Conditions (e.g., Diabetes, Hypertension)",
+    "treatment": "Treatment Received (e.g., Surgery, Radiation, Chemotherapy)",
+    "grade": "Tumor Grade (e.g., Gleason Score for Prostate Cancer)",
+    "stage": "Cancer Stage (e.g., TNM Staging System)",
+    "gleason1": "Primary Gleason Pattern Score",
+    "gleason2": "Secondary Gleason Pattern Score",
+}
+
+DICTIONARY_TO_CLINICAL_NAMES_SEER = {
+    "age": "Age (years)",
+    "psa": "Prostate-Specific Antigen (PSA) level",
+    "mortCancer": "Cancer-specific mortality",
+    "mort": "Overall mortality",
+    "days": "Days from diagnosis to last follow-up or death",
+    "comorbidities": "Number of comorbidities",
+    "treatment": "Treatment received (e.g., surgery, radiation, etc.)",
+    "grade": "Tumor grade",
+    "stage": "Cancer stage (TNM classification)",
+    "gleason1": "Primary Gleason grade",
+    "gleason2": "Secondary Gleason grade",
 }
