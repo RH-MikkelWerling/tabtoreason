@@ -130,6 +130,8 @@ response_data["difficulty"] = response_data.apply(
     lambda x: calculate_difficulty_of_task(x), axis=1
 )
 
+# answer_responses
+
 response_data["outcome_text"] = response_data["outcome"].apply(
     lambda x: "Dead" if x == 1 else "Alive"
 )
@@ -160,17 +162,41 @@ def generate_tasks_from_patient_descriptions(row, response_data, system_prompt):
 
 tasks = response_data.apply(
     lambda x: generate_tasks_from_patient_descriptions(
-        x, response_data, FROM_PATIENT_DESCRIPTIONS_TO_TASK_PROMPT
+        x, response_data, FROM_PATIENT_DESCRIPTIONS_TO_TASK_NO_EVALUATION_PROMPT
     ),
     axis=1,
 ).to_list()
 
+# all_responses_list = []
+
+# for batch_index in range(10):
+#     with open(
+#         f"data/biobank/tasks/patient_tasks_biobank_batch_{batch_index}.pkl", "rb"
+#     ) as f:
+#         file = pkl.load(f)
+#         all_responses_list.extend(file)
+
+# reasoning_responses = [x["reasoning"] for x in all_responses_list]
+# answer_responses = [x["answer"] for x in all_responses_list]
+
+# response_data["reasoning_task"] = reasoning_responses
+# response_data["answers_task"] = answer_responses
+# response_data["task"] = tasks
+
+# response_data["reasoning_task_length"] = response_data["reasoning_task"].apply(
+#     lambda x: len(x)
+# )
+
+# sns.displot(data=response_data, x="reasoning_task_length")
+
+# sns.lmplot(data=response_data, x="difficulty", y="reasoning_task_length", scatter=True)
+
+# file
+# Example usage
 if __name__ == "__main__":
     import os
 
-    file_path = (
-        f"data/biobank/tasks/patient_tasks_counterfactuals_biobank_batch_complete.pkl"
-    )
+    file_path = f"data/biobank/tasks/patient_tasks_no_evaluation_biobank_batch_complete.pkl"
 
     results = asyncio.run(run_llm_calls(tasks))  # Run tasks properly
 

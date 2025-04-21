@@ -167,30 +167,6 @@ tasks = response_data.apply(
     axis=1,
 ).to_list()
 
-# all_responses_list = []
-
-# for batch_index in range(10):
-#     with open(
-#         f"data/biobank/tasks/patient_tasks_biobank_batch_{batch_index}.pkl", "rb"
-#     ) as f:
-#         file = pkl.load(f)
-#         all_responses_list.extend(file)
-
-# reasoning_responses = [x["reasoning"] for x in all_responses_list]
-# answer_responses = [x["answer"] for x in all_responses_list]
-
-# response_data["reasoning_task"] = reasoning_responses
-# response_data["answers_task"] = answer_responses
-# response_data["task"] = tasks
-
-# response_data["reasoning_task_length"] = response_data["reasoning_task"].apply(
-#     lambda x: len(x)
-# )
-
-# sns.displot(data=response_data, x="reasoning_task_length")
-
-# sns.lmplot(data=response_data, x="difficulty", y="reasoning_task_length", scatter=True)
-
 # file
 # Example usage
 if __name__ == "__main__":

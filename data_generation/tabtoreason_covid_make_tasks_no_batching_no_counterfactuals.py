@@ -16,30 +16,51 @@ import seaborn as sns
 tqdm.pandas()
 
 # load dataset
+data = pd.read_csv("data/covid/covid_no_one_hot.csv")
+# %%
+# remove irrelevant columns
 
-trace_data = pd.read_csv("data/biobank/processed_data/biobank_complete.csv")
+data = data[[x for x in data.columns if "Unnamed: 0" not in x]].reset_index(drop=True)
 
+column_names = list(data.columns)
 
-y = trace_data["Clinical Event Occurrence"]
+# generate dictionary for mapping column names to meaningful clinical names
 
-X = trace_data[
-    [
+# column_mapping = prompt_model(CONVERT_COLUMNS_PROMPT.format(column_names = column_names))
+
+# print(column_mapping["answer"])
+# %%
+renamed_data = data.rename(columns=DICTIONARY_TO_CLINICAL_NAMES_COVID)
+
+trace_data = renamed_data.drop_duplicates(
+    subset=[
         x
-        for x in trace_data.columns
-        if x != "Clinical Event Occurrence" and x != "Time to Clinical Event (Days)"
+        for x in renamed_data.columns
+        if x != "Deceased Status" and x != "Days from Hospital Admission to Outcome"
     ]
-]
+).reset_index(drop=True)
+
+y = trace_data["Deceased Status"]
+
+with open("data/covid/patient_descriptions/patient_descriptions_covid_complete.pkl", "rb") as f:
+    patient_descriptions = pkl.load(f)
+
+reasoning = [x["reasoning"] for x in patient_descriptions]
+answering = [x["answer"] for x in patient_descriptions]
+
+trace_data["patient_description_reasoning"] = reasoning
+trace_data["patient_description_answering"] = answering
 
 # get distances
 # distances = gower.gower_matrix(X)
 # np.save("distances.npy", distances)
-distances = np.load("data/biobank/processed_data/distances.npy")
+distances = np.load("data/covid/processed_data/distances.npy")
 
 response_data = trace_data.rename(
     columns={
         "patient_description_reasoning": "reasoning",
         "patient_description_answering": "answers",
-        "Clinical Event Occurrence": "outcome",
+        "Deceased Status": "outcome",
     }
 ).reset_index(drop=True)
 
@@ -160,7 +181,7 @@ def generate_tasks_from_patient_descriptions(row, response_data, system_prompt):
 
 tasks = response_data.apply(
     lambda x: generate_tasks_from_patient_descriptions(
-        x, response_data, FROM_PATIENT_DESCRIPTIONS_TO_TASK_PROMPT
+        x, response_data, FROM_PATIENT_DESCRIPTIONS_TO_TASK_NO_COUNTERFACTUAL_PROMPT
     ),
     axis=1,
 ).to_list()
@@ -169,7 +190,7 @@ if __name__ == "__main__":
     import os
 
     file_path = (
-        f"data/biobank/tasks/patient_tasks_counterfactuals_biobank_batch_complete.pkl"
+        f"data/covid/tasks/patient_tasks_no_counterfactuals_covid_batch_complete.pkl"
     )
 
     results = asyncio.run(run_llm_calls(tasks))  # Run tasks properly
@@ -178,3 +199,5 @@ if __name__ == "__main__":
         pkl.dump(results, f)
 
     print("Collected", len(results), "responses.")
+
+# %%
