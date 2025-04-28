@@ -84,7 +84,7 @@ async def generate_all_embeddings_with_retry(texts, max_requests_per_minute=60):
 
 
 # assuming biobank_processed_data is a pandas DataFrame
-texts = biobank_processed_data["patient_description_answering"].tolist()[:100]
+texts = biobank_processed_data["patient_description_answering"].tolist()
 
 # run the async tasks
 embeddings = asyncio.run(generate_all_embeddings_with_retry(texts))
