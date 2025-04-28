@@ -65,7 +65,7 @@ async def async_prompt_model(prompt):
 sem = asyncio.Semaphore(1000)
 
 
-async def call_llm(prompt, index, progress_queue, max_retries=10):
+async def call_llm(prompt, index, progress_queue, max_retries=15):
     """Asynchronously calls the LLM with exponential backoff on rate limits."""
     messages = [{"content": prompt, "role": "user"}]
     for attempt in range(max_retries):
@@ -79,8 +79,18 @@ async def call_llm(prompt, index, progress_queue, max_retries=10):
                 # stream=True,
             )
 
-            await progress_queue.put(1)  # Notify progress update
-            return index, get_content_and_reason_from_response(response)
+            response_dict = get_content_and_reason_from_response(response)
+            if response_dict["answer"]:
+
+                await progress_queue.put(1)  # Notify progress update
+
+                return index, response_dict
+            else:
+                wait_time = min(5 * (attempt + 1), 30)
+                print(
+                    f"Answer was not produced. Retrying in {wait_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})"
+                )
+                continue
 
         except (litellm.APIError, httpx.ConnectError) as e:
             wait_time = 2**attempt + random.uniform(0, 1)
@@ -90,7 +100,7 @@ async def call_llm(prompt, index, progress_queue, max_retries=10):
             await asyncio.sleep(wait_time)  # Exponential backoff
 
         except litellm.RateLimitError:
-            wait_time = 2**attempt + random.uniform(0, 1)  # Exponential backoff
+            wait_time = min(5 * (attempt + 1), 30)  # Exponential backoff
             print(
                 f"Rate limit hit. Retrying in {wait_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})"
             )
@@ -101,16 +111,16 @@ async def call_llm(prompt, index, progress_queue, max_retries=10):
                 f"Timeout occurred. Retrying in {wait_time:.2f}s... (Attempt {attempt+1}/{max_retries})"
             )
             await asyncio.sleep(wait_time)
-        except KeyError:
+        except KeyError as e:
             wait_time = 2**attempt + random.uniform(0, 1)
             print(
-                f"KeyError issue: {e}. Retrying in {wait_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})"
+                f"KeyError issue: {e} for {index}. Retrying in {wait_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})"
             )
             await asyncio.sleep(wait_time)  # Exponential backoff
-        except litellm.exceptions.APIConnectionError:
+        except litellm.exceptions.APIConnectionError as e:
             wait_time = 2**attempt + random.uniform(0, 1)
             print(
-                f"API connection issue: {e}. Retrying in {wait_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})"
+                f"API connection issue: {e} for index {index}. Retrying in {wait_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})"
             )
             await asyncio.sleep(wait_time)  # Exponential backoff
 

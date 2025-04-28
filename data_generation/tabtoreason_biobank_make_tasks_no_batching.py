@@ -17,7 +17,7 @@ tqdm.pandas()
 
 # load dataset
 
-trace_data = pd.read_csv("data/biobank/processed_data/biobank_complete.csv")
+trace_data = pd.read_csv("data/biobank/processed_data/biobank_complete_full_batch.csv")
 
 
 y = trace_data["Clinical Event Occurrence"]
@@ -164,6 +164,9 @@ tasks = response_data.apply(
     ),
     axis=1,
 ).to_list()
+
+with open("data/biobank/processed_data/biobank_tasks.pkl", "wb") as f:
+    pkl.dump(tasks, f)
 
 if __name__ == "__main__":
     import os

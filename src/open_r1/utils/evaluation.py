@@ -102,6 +102,13 @@ register_lighteval_task(
     "mmlu:professional_medicine",
     0,
 )
+register_lighteval_task(
+    LIGHTEVAL_TASKS,
+    "leaderboard",
+    "mmlu_professional_medicine_leaderboard",
+    "mmlu:professional_medicine",
+    0,
+)
 
 
 # 1. go through and label categories for each dataset

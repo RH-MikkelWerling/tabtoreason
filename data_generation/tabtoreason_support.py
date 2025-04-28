@@ -25,13 +25,51 @@ data = pd.read_csv("../tabular_datasets/support_data.csv")
 
 # remove irrelevant columns
 
-data = data[[x for x in data.columns if "Unnamed: 0" not in x]].reset_index(drop=True)
+data = data[
+    [x for x in data.columns if "Unnamed: 0" not in x and "adls" not in x]
+].reset_index(drop=True)
 
-column_names = list(data.columns)
+
+def collapse_income_columns(df, income_columns):
+    """
+    Collapse multiple income range columns into a single column.
+
+    Args:
+        df: pandas DataFrame
+        income_columns: list of column names representing income ranges
+
+    Returns:
+        A pandas Series with the income ranges
+    """
+    # Create a temporary dataframe with just income columns
+    temp_df = df[income_columns]
+
+    # For each row, get the column name where value is True/1
+    income_series = temp_df.idxmax(axis=1)
+
+    # Set to NA where no income column is True/1
+    income_series[temp_df.sum(axis=1) == 0] = pd.NA
+
+    return income_series
+
+
+# Usage:
+income_cols = ["under $11k", "$11-$25k", "$25-$50k", ">$50k"]
+data["income"] = collapse_income_columns(data, income_cols)
+
+race_cols = ["white", "black", "asian", "hispanic"]
+data["race"] = collapse_income_columns(data, race_cols)
+
+data = data[
+    [x for x in data.columns if x not in income_cols and x not in race_cols]
+].reset_index(drop=True)
+
+
+# column_names = list(data.columns)
 
 # generate dictionary for mapping column names to meaningful clinical names
 
-# column_mapping = prompt_model(CONVERT_COLUMNS_PROMPT.format(column_names = column_names))
+# column_mapping = prompt_model(CONVERT_COLUMNS_PROMPT.format(column_names=column_names))
 
 # print(column_mapping["answer"])
 
@@ -41,19 +79,17 @@ trace_data = renamed_data.drop_duplicates(
     subset=[
         x
         for x in renamed_data.columns
-        if x != "Patient Death Indicator (0=Alive, 1=Deceased)"
-        and x != "Time to Death (Days post-admission)"
+        if x != "Mortality Status" and x != "Time to Death (days)"
     ]
 ).reset_index(drop=True)
 
-y = trace_data["Patient Death Indicator (0=Alive, 1=Deceased)"]
+y = trace_data["Mortality Status"]
 
 X = trace_data[
     [
         x
         for x in trace_data.columns
-        if x != "Patient Death Indicator (0=Alive, 1=Deceased)"
-        and x != "Time to Death (Days post-admission)"
+        if x != "Mortality Status" and x != "Time to Death (days)"
     ]
 ]
 
@@ -74,30 +110,15 @@ patient_description_prompts = [
 ]
 
 if __name__ == "__main__":
-    # batching currently done with 1000 batch size
-    def ceiling_division(n, d):
-        return -(n // -d)
 
-    batch_size = 1000
+    file_path = f"data/support_data/patient_descriptions/patient_descriptions_support_batch_complete.pkl"
 
-    for iteration in range(
-        ceiling_division(len(patient_description_prompts), batch_size)
-    ):
-        print("Running batch:", iteration)
-        file_path = f"data/support_data/patient_descriptions/patient_descriptions_support_batch_{iteration}.pkl"
-        if os.path.exists(file_path):
-            continue
-        else:
-            current_patient_descriptions = patient_description_prompts[
-                iteration * 1000 : (iteration + 1) * 1000
-            ]
+    results = asyncio.run(
+        run_llm_calls(patient_description_prompts)
+    )  # Run tasks properly
 
-            results = asyncio.run(
-                run_llm_calls(current_patient_descriptions)
-            )  # Run tasks properly
+    with open(file_path, "wb") as f:
+        pkl.dump(results, f)
 
-            with open(file_path, "wb") as f:
-                pkl.dump(results, f)
-
-            print("Collected", len(results), "responses.")
-            # break
+    print("Collected", len(results), "responses.")
+    # break

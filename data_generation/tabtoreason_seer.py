@@ -15,6 +15,7 @@ from tqdm.asyncio import tqdm
 import gower
 import random
 import os
+
 # %%
 
 nest_asyncio.apply()  # Allows nested event loops (only needed for Jupyter)
@@ -22,7 +23,7 @@ tqdm.pandas()
 
 # load dataset
 
-data = pd.read_csv("data/covid/covid_no_one_hot.csv")
+data = pd.read_csv("../tabular_datasets/seer.csv")
 display(data)
 # %%
 # remove irrelevant columns
@@ -43,8 +44,7 @@ trace_data = renamed_data.drop_duplicates(
     subset=[
         x
         for x in renamed_data.columns
-        if x != "Deceased Status"
-        and x != "Days from Hospital Admission to Outcome"
+        if x != "Deceased Status" and x != "Days from Hospital Admission to Outcome"
     ]
 ).reset_index(drop=True)
 
@@ -54,8 +54,7 @@ X = trace_data[
     [
         x
         for x in trace_data.columns
-        if x != "Deceased Status"
-        and x != "Days from Hospital Admission to Outcome"
+        if x != "Deceased Status" and x != "Days from Hospital Admission to Outcome"
     ]
 ]
 

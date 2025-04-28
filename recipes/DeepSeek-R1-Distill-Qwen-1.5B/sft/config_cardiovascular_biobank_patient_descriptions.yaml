@@ -14,15 +14,18 @@ dataset_num_proc: 48
 
 # SFT trainer config
 bf16: true
-do_eval: false
-eval_strategy: "no"
-gradient_accumulation_steps: 1
+do_eval: true
+#eval_strategy: "no"
+eval_strategy: "steps"
+eval_steps: 500 # Evaluate every 500 training steps
+eval_dataset_split: "test"
+gradient_accumulation_steps: 8
 gradient_checkpointing: true
 gradient_checkpointing_kwargs:
   use_reentrant: false
-hub_model_id: DeepSeek-R1-Distill-Qwen-1.5B
+hub_model_id: DeepSeek-R1-Distill-Qwen-1.5B-Patient-Descriptions
 hub_strategy: every_save
-learning_rate: 5.0e-05
+learning_rate: 5.0e-06 # NEW CHANGE
 log_level: info
 logging_steps: 5
 logging_strategy: steps
@@ -33,10 +36,10 @@ packing: false
 max_length: 32768
 max_steps: -1
 num_train_epochs: 1
-output_dir: data/DeepSeek-R1-Distill-Qwen-1.5B
+output_dir: data/DeepSeek-R1-Distill-Qwen-1.5B-Patient-Descriptions
 overwrite_output_dir: true
-per_device_eval_batch_size: 4
-per_device_train_batch_size: 4
+per_device_eval_batch_size: 2
+per_device_train_batch_size: 2
 push_to_hub: true
 report_to:
   - wandb

@@ -42,7 +42,9 @@ trace_data = renamed_data.drop_duplicates(
 
 y = trace_data["Deceased Status"]
 
-with open("data/covid/patient_descriptions/patient_descriptions_covid_complete.pkl", "rb") as f:
+with open(
+    "data/covid/patient_descriptions/patient_descriptions_covid_complete.pkl", "rb"
+) as f:
     patient_descriptions = pkl.load(f)
 
 reasoning = [x["reasoning"] for x in patient_descriptions]
@@ -186,12 +188,55 @@ tasks = response_data.apply(
     axis=1,
 ).to_list()
 
+
+class AdaptiveConcurrencyController:
+    def __init__(self, total_requests):
+        self.total = total_requests
+        self.completed = 0
+        self.errors = 0
+        self.current_concurrency = 1000  # Start high
+
+    async def adjust(self):
+        progress = self.completed / self.total
+
+        if progress < 0.2:  # First 20%
+            pass  # Maintain burst
+        elif progress < 0.5:  # Next 30%
+            self.current_concurrency = 500
+        else:  # Final 50%
+            if self.errors / self.completed > 0.05:  # >5% error rate
+                self.current_concurrency = max(50, self.current_concurrency * 0.9)
+            else:
+                self.current_concurrency = min(200, self.current_concurrency * 1.1)
+
+
+async def run_with_adaptation(prompts):
+    controller = AdaptiveConcurrencyController(len(prompts))
+    sem = asyncio.Semaphore(controller.current_concurrency)
+
+    async def managed_call(prompt, index):
+        async with sem:
+            try:
+                result = await call_llm(prompt, index)
+                controller.completed += 1
+                return result
+            except Exception:
+                controller.errors += 1
+                raise
+            finally:
+                await controller.adjust()
+
+    return await asyncio.run(*[managed_call(p, i) for i, p in enumerate(prompts)])
+
+
 if __name__ == "__main__":
     import os
 
     file_path = (
         f"data/covid/tasks/patient_tasks_counterfactuals_covid_batch_complete.pkl"
     )
+
+    # results = run_with_adaptation(tasks)
 
     results = asyncio.run(run_llm_calls(tasks))  # Run tasks properly
 

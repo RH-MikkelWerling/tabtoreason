@@ -53,7 +53,9 @@ X = trace_data[
     [
         x
         for x in trace_data.columns
-        if x != "Deceased Status" and x != "Days from Hospital Admission to Outcome"
+        if x != "Deceased Status"
+        and x != "Days from Hospital Admission to Outcome"
+        and x != "Race"
     ]
 ]
 
@@ -75,14 +77,16 @@ patient_description_prompts = [
 # %%
 if __name__ == "__main__":
     # batching currently done with 1000 batch size
-        file_path = f"data/covid/patient_descriptions/patient_descriptions_covid_complete.pkl"
+    file_path = (
+        f"data/covid/patient_descriptions/patient_descriptions_covid_complete.pkl"
+    )
 
-        results = asyncio.run(
-            run_llm_calls(patient_description_prompts)
-        )  # Run tasks properly
+    results = asyncio.run(
+        run_llm_calls(patient_description_prompts)
+    )  # Run tasks properly
 
-        with open(file_path, "wb") as f:
-            pkl.dump(results, f)
+    with open(file_path, "wb") as f:
+        pkl.dump(results, f)
 
-        print("Collected", len(results), "responses.")
-        # break
+    print("Collected", len(results), "responses.")
+    # break
