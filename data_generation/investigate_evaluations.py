@@ -5,6 +5,8 @@ data = pd.read_parquet(
     "../data/evals/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B/details/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B/2025-04-23T13-01-02.868871/details_helm|med_qa_4opt_cardiovascular|0_2025-04-23T13-01-02.868871.parquet"
 )
 
+data["predictions"].values[0]
+
 
 def decode_prediction(row):
     # Get logits for each option
@@ -30,6 +32,7 @@ def decode_prediction(row):
 decoded = data.apply(decode_prediction, axis=1, result_type="expand")
 df = pd.concat([data, decoded], axis=1)
 
+print(df["example"].values[0])
 
 data_finetuned = pd.read_parquet(
     "../data/evals/mikkel-werling/DeepSeek-R1-Distill-Qwen-1.5B/details/mikkel-werling/DeepSeek-R1-Distill-Qwen-1.5B/2025-04-23T13-03-18.256095/details_helm|med_qa_4opt_cardiovascular|0_2025-04-23T13-03-18.256095.parquet"

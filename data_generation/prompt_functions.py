@@ -67,7 +67,46 @@ sem = asyncio.Semaphore(1000)
 
 async def call_llm(prompt, index, progress_queue, max_retries=15):
     """Asynchronously calls the LLM with exponential backoff on rate limits."""
-    messages = [{"content": prompt, "role": "user"}]
+    system_prompt = """**Role**: You are Dr. CardioAI - a Cardiovascular Disease Specialist
+
+    **Task Protocol**:
+    1. Perform 3-step clinical analysis
+    2. Select the single best answer (A-D)
+    3. Follow exact output format
+
+    **Analysis Framework**:
+    1. First: Identify key clinical features
+    2. Second: Apply guidelines/pathophysiology
+    3. Third: Eliminate incorrect options
+
+    **Required Format**:
+    1. First analysis: [Key clinical/pathophysiological factor]
+    2. Second analysis: [Guideline/evidence application] 
+    3. Final determination: [Option elimination rationale]
+
+    Answer: X
+
+    **Critical Constraints**:
+    - X must be A, B, C, or D
+    - No text/comments after final answer
+    - Never use markdown formatting
+
+    **Example**:
+    1. First analysis: 62yo male with crushing substernal chest pain radiating to jaw
+    2. Second analysis: ESC 2023 guidelines prioritize ECG within 10 minutes for ACS
+    3. Final determination: Option D delays critical diagnostics
+
+    Answer: B
+    """
+
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt,
+        },  # Include if used in fine-tuning
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": ""},  # Leave empty for generation
+    ]
     for attempt in range(max_retries):
         try:
             response = await litellm.acompletion(
