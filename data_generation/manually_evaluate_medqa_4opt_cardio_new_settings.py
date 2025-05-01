@@ -28,102 +28,6 @@ tqdm.pandas()
 
 dataset_test = load_dataset("mikkel-werling/medqa_cardiovascular")
 
-
-### CONSIDER THIS FOR SIMPLE PROMPT:
-
-system_prompt = """**Role**: Cardiovascular Specialist
-
-**Response Format**:
-[Brief medical reasoning]
-Final answer: X
-
-**Rules**:
-- X must be A/B/C/D
-- "Final answer:" must be the last line
-- No other text/comments after"""
-
-### CONSIDER THIS FOR SIMPLE PROMPT:
-
-system_prompt = """**Role**: Cardiovascular Specialist
-
-**Response Format**:
-[Brief medical reasoning]
-Final answer: X
-
-**Rules**:
-- X must be A/B/C/D
-- "Final answer:" must be the last line
-- No other text/comments after"""
-
-system_prompt = """**Role**: Cardiovascular Specialist
-
-**Response Format**:
-[Brief medical reasoning]
-Final answer: X
-
-**Rules**:
-- X must be A/B/C/D
-- "Final answer:" must be the last line
-- No other text/comments after"""
-
-
-system_prompt = """**Role**: You are Dr. CardioAI - a Cardiovascular Disease Specialist
-
-**Task Protocol**:
-1. Perform 3-step clinical analysis
-2. Select the single best answer (A-D)
-3. Follow exact output format
-
-**Analysis Framework**:
-1. First: Identify key clinical features
-2. Second: Apply guidelines/pathophysiology
-3. Third: Eliminate incorrect options
-
-**Required Format**:
-1. First analysis: [Key clinical/pathophysiological factor]
-2. Second analysis: [Guideline/evidence application] 
-3. Final determination: [Option elimination rationale]
-
-Final Answer: X
-
-**Critical Constraints**:
-- X must be A, B, C, or D
-- No text/comments after final answer
-- Never use markdown formatting
-
-**Example**:
-1. First analysis: 62yo male with crushing substernal chest pain radiating to jaw
-2. Second analysis: ESC 2023 guidelines prioritize ECG within 10 minutes for ACS
-3. Final determination: Option D delays critical diagnostics
-
-Final Answer: B
-"""
-
-
-system_prompt = """**Role**: Dr. CardioAI – Cardiovascular Disease Specialist
-
-**Task**: Analyze and answer medical questions by reasoning through the clinical information provided. Once you have reasoned through the issue, give the final answer.
-
-**Response Format**:
-1. Reason internally (think through the problem step by step, using clinical knowledge).
-2. **Do not output reasoning or any thinking markers (e.g., `<think>`) to the user**.
-3. After reasoning, output only the final answer in the format:  
-   **Answer: X**
-
-**Critical Requirements**:
-- X must be one of: A, B, C, or D
-- The answer **must be the last line** of your response.
-- Once you output the final answer, **stop immediately** and do not include any additional comments, reasoning, or explanations.
-
-**Example**:
-Question: What's first-line therapy for stable angina?  
-Options: A) Aspirin B) Nitroglycerin C) Warfarin D) Metoprolol
-
-Response:
-Answer: D
-"""
-
-
 system_prompt = """**Role**: Dr. CardioAI – Cardiovascular Disease Specialist
 
 **Task**: Analyze and answer medical questions by:
@@ -142,8 +46,13 @@ Answer: X
 - Once you output the final answer, **stop immediately** and do not include any additional comments, reasoning, or explanations.
 
 **Example**:
-Question: What's first-line therapy for stable angina?  
-Options: A) Aspirin B) Nitroglycerin C) Warfarin D) Metoprolol
+**Question**: What's first-line therapy for stable angina?
+
+**Options**: 
+A) Aspirin 
+B) Nitroglycerin 
+C) Warfarin 
+D) Metoprolol
 
 Response:
 Answer: D
@@ -169,210 +78,7 @@ prompts = [
     for x in dataset_test["train"]
 ]
 
-# MODEL_ARGS = "pretrained=$MODEL,dtype=bfloat16,tensor_parallel_size=$NUM_GPUS,max_num_batched_tokens=32768,max_model_length=32768,gpu_memory_utilization=0.8,generation_parameters={max_new_tokens:32768,temperature:0.6,top_p:0.95}"
-
 from transformers import AutoTokenizer
-
-
-def get_stop_token_ids(tokenizer):
-    return [
-        tokenizer.eos_token_id,
-        tokenizer.convert_tokens_to_ids("<|EOT|>"),  # Common in chat models
-        tokenizer.convert_tokens_to_ids("</s>"),
-        tokenizer.encode("\nUser:")[0],  # Prevent multi-turn hallucinations
-    ]
-
-
-def get_stop_token_ids(tokenizer):
-    stop_ids = []
-
-    # EOS token
-    if tokenizer.eos_token_id is not None:
-        stop_ids.append(tokenizer.eos_token_id)
-
-    # Chinese token (remove if using Llama)
-    # stop_ids.append(tokenizer.convert_tokens_to_ids("答案"))  # Remove this line
-
-    # Handle special tokens safely
-    special_tokens = ["</s>", "\nUser:"]
-    for token in special_tokens:
-        try:
-            ids = tokenizer.encode(token, add_special_tokens=False)
-            if ids:
-                stop_ids.append(ids[0])
-        except:
-            continue
-
-    # Deduplicate while preserving order
-    seen = set()
-    return [x for x in stop_ids if x not in seen and not seen.add(x)]
-
-
-def get_stop_token_ids(tokenizer):
-    """Safe stop token extraction for multiple architectures"""
-    stop_ids = []
-
-    # Universal base tokens
-    base_tokens = [
-        tokenizer.eos_token,
-        tokenizer.pad_token,
-        "</s>",
-        "\nUser:",
-        "答案",  # For Chinese models like Qwen
-        "<|endoftext|>",
-        "<|im_end|>",
-    ]
-
-    # Model-agnostic collection
-    for token in base_tokens:
-        try:
-            if token and token in tokenizer.get_vocab():
-                stop_ids.append(tokenizer.convert_tokens_to_ids(token))
-        except:
-            continue
-
-    # Add encoded sequences safely
-    sequences = ["\nFinal answer:", "\nAnswer:", "</think>"]
-    for seq in sequences:
-        try:
-            seq_id = tokenizer.encode(seq, add_special_tokens=False)
-            if seq_id:
-                stop_ids.append(seq_id[0])
-        except:
-            continue
-
-    # Deduplicate and validate
-    valid_ids = [int(i) for i in stop_ids if i is not None]
-    return list(dict.fromkeys(valid_ids))  # Preserve order, remove duplicates
-
-
-def get_stop_token_ids(tokenizer):
-    """Architecture-agnostic stop token ID extraction, compatible with Qwen, LLaMA, DeepSeek."""
-    candidate_tokens = [
-        tokenizer.eos_token,  # Should work if eos_token is defined
-        tokenizer.pad_token,  # Optional fallback
-        "<|endoftext|>",  # OpenAI-style
-        "<|im_end|>",  # DeepSeek / ChatML-style
-        "<|EOT|>",  # Qwen-style
-        "</s>",  # HuggingFace default
-        "答案",  # Qwen-specific 'Answer'
-        "\nUser:",  # Avoid multi-turn continuation
-        "\nFinal answer:",  # CoT-style stopping
-        "\nAnswer:",
-        "</think>",
-    ]
-
-    stop_ids = set()
-
-    # Try to encode each token robustly
-    for token in candidate_tokens:
-        if not token:
-            continue
-        try:
-            # Try to encode full token/phrase and add ALL token IDs
-            encoded = tokenizer.encode(token, add_special_tokens=False)
-            stop_ids.update(encoded)
-        except Exception:
-            continue
-
-    # Also include explicit eos_token_id if not caught above
-    if hasattr(tokenizer, "eos_token_id") and tokenizer.eos_token_id is not None:
-        stop_ids.add(tokenizer.eos_token_id)
-
-    return list(stop_ids)
-
-
-def get_stop_token_ids(tokenizer):
-    """
-    Safe, architecture-agnostic stop token collection for QA evaluation.
-    Only includes true stop markers (not semantic tokens like 'Answer:').
-    """
-    candidate_tokens = [
-        tokenizer.eos_token,
-        tokenizer.pad_token,
-        "<|endoftext|>",
-        "<|im_end|>",
-        "<|EOT|>",
-        "</s>",
-    ]
-
-    stop_ids = set()
-
-    for token in candidate_tokens:
-        if not token:
-            continue
-        try:
-            encoded = tokenizer.encode(token, add_special_tokens=False)
-            stop_ids.update(encoded)
-        except Exception:
-            continue
-
-    if tokenizer.eos_token_id is not None:
-        stop_ids.add(tokenizer.eos_token_id)
-
-    return list(stop_ids)
-
-
-def get_stop_token_ids(tokenizer):
-    return [
-        tokenizer.eos_token_id,
-        tokenizer.convert_tokens_to_ids("<|EOT|>"),  # Common in chat models
-        tokenizer.convert_tokens_to_ids("</s>"),
-        tokenizer.encode("\nUser:")[0],  # Prevent multi-turn hallucinations
-    ]
-
-
-def get_model_family(tokenizer):
-    """
-    Heuristically determine the model family based on tokenizer attributes.
-    Returns one of: "qwen", "llama", or "default"
-    """
-    name = tokenizer.name_or_path.lower()
-
-    if "qwen" in name or "<|eot|>" in tokenizer.get_vocab():
-        return "qwen"
-    elif "llama" in name or "llama" in tokenizer.__class__.__name__.lower():
-        return "llama"
-    else:
-        return "default"
-
-
-def get_stop_token_ids(tokenizer):
-    """
-    Return stop token IDs based on the model family (Qwen, LLaMA, etc.)
-    """
-    model_family = get_model_family(tokenizer)
-    stop_ids = set()
-
-    # 1. Always include eos_token_id if available
-    if tokenizer.eos_token_id is not None:
-        stop_ids.add(tokenizer.eos_token_id)
-
-    # 2. Model-specific additions
-    if model_family == "qwen":
-        tokens = ["<|EOT|>", "</s>"]
-    elif model_family == "llama":
-        tokens = ["</s>", "<|endoftext|>"]
-    else:  # default fallback
-        tokens = ["</s>", "<|endoftext|>", "<|im_end|>"]
-
-    for tok in tokens:
-        try:
-            tok_id = tokenizer.convert_tokens_to_ids(tok)
-            if tok_id is not None and tok_id != tokenizer.unk_token_id:
-                stop_ids.add(tok_id)
-        except Exception:
-            continue
-
-    # 3. Prevent multi-turn hallucinations (optional heuristic)
-    try:
-        user_tok = tokenizer.encode("\nUser:", add_special_tokens=False)
-        if user_tok:
-            stop_ids.add(user_tok[0])
-    except:
-        pass
-
-    return list(stop_ids)
 
 
 def get_stop_token_ids(tokenizer):
@@ -425,7 +131,7 @@ def load_vllm_model(
     model_name: str,
     tensor_parallel_size: int = 4,
     dtype: str = "bfloat16",
-    max_model_len: int = 32768,
+    max_model_len: int = 8192,
 ) -> LLM:
     """Initialize the vLLM model"""
     return LLM(
@@ -457,9 +163,9 @@ def generate_completions(
     model: LLM,
     tokenizer,
     prompts: list[str],
-    temperature: float = 0.6,
-    top_p: float = 0.95,
-    max_tokens: int = 32768,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+    max_tokens: int = 8192,
     n: int = 1,
 ):
     """Generate completions with proper output unpacking"""
@@ -468,10 +174,10 @@ def generate_completions(
         top_p=top_p,
         max_tokens=max_tokens,
         n=n,
-        frequency_penalty=1.2,
-        presence_penalty=0.9,
+        # frequency_penalty=1.2,
+        # presence_penalty=0.9,
         stop_token_ids=get_stop_token_ids(tokenizer),
-        min_p=0.05,
+        # min_p=0.05,
     )
 
     start_time = time.time()
@@ -554,6 +260,12 @@ def generate_until_valid(
         attempt += 1
 
     failed_indices = [i for i, ans in enumerate(answers) if ans is None]
+
+    # After each model evaluation:
+    del model
+    torch.cuda.empty_cache()
+    destroy_model_parallel()  # vLLM-specific cleanup
+    gc.collect()
     return answers, reasonings, answer_texts, all_completions, failed_indices
 
 
@@ -573,7 +285,7 @@ if __name__ == "__main__":
         # "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
         # "mikkel-werling/DeepSeek-R1-Distill-Llama-8B-Patient-Descriptions",
         # "mikkel-werling/DeepSeek-R1-Distill-Llama-8B-Tasks",
-        "HPAI-BSC/Llama3-Aloe-8B-Alpha"
+        "HPAI-BSC/Llama3-Aloe-8B-Alpha",
     ]
 
     for model_path in models:
@@ -600,7 +312,7 @@ if __name__ == "__main__":
                     model=model,
                     tokenizer=tokenizer,
                     prompts=specific_prompts,
-                    temperature=0.6,
+                    temperature=0.8,
                 )
             )
 
@@ -625,5 +337,6 @@ if __name__ == "__main__":
         all_dataframes = pd.concat(list_of_dataframes).reset_index(drop=True)
 
         all_dataframes.to_csv(
-            f"data/biobank/processed_data/{model_name}_responses.csv", index=False
+            f"data/biobank/processed_data/{model_name}_responses_new_settings.csv",
+            index=False,
         )

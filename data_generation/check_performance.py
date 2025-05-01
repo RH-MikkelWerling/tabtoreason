@@ -1,102 +1,84 @@
 import pandas as pd
+import glob
 
-base_model = pd.read_csv(
-    "data/biobank/processed_data/DeepSeek-R1-Distill-Qwen-1.5B_responses.csv"
+data_paths = glob.glob("data/biobank/processed_data/DeepSeek-R1*")
+
+list_of_dataframes = []
+for data_path in data_paths:
+    data = pd.read_csv(data_path)
+    data["model"] = data_path.split("/")[-1]
+    list_of_dataframes.append(data)
+
+data = pd.concat(list_of_dataframes).reset_index(drop=True)
+
+data = pd.read_csv(
+    "data/biobank/processed_data/DeepSeek-R1-Distill-Llama-8B-Tasks_responses_new_settings.csv"
 )
 
-base_model["correct_answer"] = (
-    base_model["extracted_answers"] == base_model["answer_idx"]
+data["correct_answer"] = data["extracted_answers"] == data["answer_idx"]
+data["model"] = "DeepSeek-R1-Distill-Llama-8B-Tasks"
+
+
+def make_identifier_columns(string):
+    if "8B" in string:
+        size = "8B"
+    elif "1.5B" in string:
+        size = "1.5B"
+    elif "7B" in string:
+        size = "7B"
+    if "Tasks" in string:
+        model_type = "Counterfactuals"
+    elif "Patient-Descriptions" in string:
+        model_type = "Patient Descriptions"
+    else:
+        model_type = "Base"
+
+    return size, model_type
+
+
+data["Model Size"], data["Model Type"] = zip(
+    *data["model"].apply(make_identifier_columns)
 )
 
-base_model["correct_answer"].sum() / len(base_model)
+import seaborn as sns
 
-finetuned_model = pd.read_csv(
-    "data/biobank/processed_data/DeepSeek-R1-Distill-Qwen-1.5B-Patient-Descriptions_responses.csv"
+
+sns.barplot(data=data, x="Model Size", y="correct_answer", hue="Model Type")
+
+
+performance_data = (
+    data.groupby(["Model Size", "Model Type"])
+    .agg(mean_accuracy=("correct_answer", "mean"))
+    .reset_index()
+)
+
+performance_data = (
+    data.groupby(["Model Size", "Model Type", "run"])
+    .agg(mean_accuracy=("correct_answer", "mean"))
+    .reset_index()
+)
+
+sns.stripplot(
+    data=performance_data,
+    x="Model Size",
+    y="mean_accuracy",
+    hue="Model Type",
+    dodge=True,
+    size=4,
+    edgecolor="black",
+    linewidth=1,
+    legend=False,
+    alpha=0.3,
 )
 
 
-finetuned_model = pd.read_csv(
-    "data/biobank/processed_data/DeepSeek-R1-Distill-Llama-8B_responses.csv"
+sns.boxplot(
+    data=performance_data,
+    x="Model Size",
+    y="mean_accuracy",
+    hue="Model Type",
+    dodge=True,
+    # size=5,
+    # edgecolor="black",
+    # linewidth=1
 )
-
-
-finetuned_model["correct_answer"] = (
-    finetuned_model["extracted_answers"] == finetuned_model["answer_idx"]
-)
-
-finetuned_model["correct_answer"].sum() / len(finetuned_model)
-
-finetuned_tasks_model = pd.read_csv(
-    "data/biobank/processed_data/DeepSeek-R1-Distill-Qwen-7B-Tasks_responses.csv"
-)
-
-import re
-
-
-def extract_answer(response) -> str:
-    """Robust answer extraction with group validation"""
-    response = str(response) if pd.notna(response) else ""
-
-    patterns = [
-        # Group 1 capture patterns
-        (r"(?:Answer|Final\s+Determination)[:\s]*([A-D])\)?", 1),  # Pattern 1
-        (r"\bOption\s*([A-D])\)", 1),  # Pattern 2
-        (r"\n([A-D])[\s\.]*$", 1),  # Pattern 3
-        (r"(?<![a-zA-Z])([A-D])(?![a-zA-Z])", 1),  # Pattern 4 (now with capture group)
-    ]
-
-    for pattern, group in patterns:
-        match = re.search(pattern, response, re.IGNORECASE)
-        if match and match.lastindex >= group:
-            return match.group(group).upper()
-
-    return None  # No valid match found
-
-
-# Handle NaN/float responses in your dataset
-base_model["clean_response"] = base_model["model_answer"].fillna("")
-base_model["extracted"] = base_model["clean_response"].apply(extract_answer)
-
-base_model["extracted"].isna().sum()
-
-base_model["correct_answer"] = base_model["answer_idx"] == base_model["extracted"]
-
-base_model["correct_answer"].sum() / len(base_model)
-
-# Handle NaN/float responses in your dataset
-finetuned_model["clean_response"] = finetuned_model["model_answer"].fillna("")
-finetuned_model["extracted"] = finetuned_model["clean_response"].apply(extract_answer)
-
-finetuned_model["extracted"].isna().sum()
-
-finetuned_model[finetuned_model["extracted"].isna()]["clean_response"].values
-
-finetuned_model["correct_answer"] = (
-    finetuned_model["answer_idx"] == finetuned_model["extracted"]
-)
-
-finetuned_model["correct_answer"].sum() / len(finetuned_model)
-
-finetuned_tasks_model["clean_response"] = finetuned_tasks_model["model_answer"].fillna(
-    ""
-)
-finetuned_tasks_model["extracted"] = finetuned_tasks_model["clean_response"].apply(
-    extract_answer
-)
-
-finetuned_tasks_model["extracted"].isna().sum()
-
-finetuned_tasks_model[finetuned_tasks_model["extracted"].isna()][
-    "clean_response"
-].values[2]
-
-finetuned_tasks_model[finetuned_tasks_model["extracted"].isna()]["model_answer"].values[
-    -1
-]
-
-
-finetuned_tasks_model["correct_answer"] = (
-    finetuned_tasks_model["answer_idx"] == finetuned_tasks_model["extracted"]
-)
-
-finetuned_tasks_model["correct_answer"].sum() / len(finetuned_tasks_model)
